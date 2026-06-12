@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURA — 나만의 프리미엄 주얼리 디자이너</title>
+  <meta name="description" content="AURA에서 당신만의 파인 주얼리를 디자인하세요. 금속 스타일, 스톤 배열, 캐럿과 호수를 맞춤형으로 조절하고 정밀 CAD 스펙 명세서를 생성해 실제 프로토타입 출력소 및 장인과 연계할 수 있습니다.">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Visual Preview Panel (Left Side) -->
+    <section class="visual-panel">
+      <div class="visual-header">
+        <div>
+          <a href="#" class="brand-logo">AURA<span>.</span></a>
+          <div class="brand-subtitle">Fine Jewelry Configurator</div>
+        </div>
+        <button class="btn-view" id="btn-reset-design">Reset</button>
+      </div>
+      <div class="canvas-container">
+        <!-- Unified SVG Layering for Ring configurations (Ensures perfect alignment & scaling) -->
+        <div class="ring-image-wrapper" id="ring-preview-wrapper">
+          <svg id="ring-svg" viewBox="0 0 500 500" style="width: 100%; height: 100%; pointer-events: none;">
+            <defs>
+              <mask id="gem-mask">
+                <!-- Black hides, White shows. The gems are shown unfiltered. -->
+                <rect width="500" height="500" x="0" y="0" fill="black" />
+                <circle id="mask-solitaire" cx="250" cy="190" r="32" fill="white" opacity="0" />
+                <circle id="mask-halo" cx="250" cy="188" r="38" fill="white" opacity="0" />
+                <g id="mask-three-stone" opacity="0">
+                  <circle id="mask-3s-center" cx="250" cy="182" r="28" fill="white" />
+                  <circle id="mask-3s-left" cx="196" cy="204" r="18" fill="white" />
+                  <circle id="mask-3s-right" cx="304" cy="204" r="18" fill="white" />
+                </g>
+                <path id="mask-band" d="M 140,310 A 125,125 0 0,1 360,310" fill="none" stroke="white" stroke-width="38" stroke-linecap="round" opacity="0" />
+              </mask>
+              <mask id="metal-mask">
+                <!-- White shows, Black hides. The metal is shown, gems are hidden. -->
+                <rect width="500" height="500" x="0" y="0" fill="white" />
+                <circle id="metal-mask-solitaire" cx="250" cy="190" r="32" fill="black" opacity="0" />
+                <circle id="metal-mask-halo" cx="250" cy="188" r="38" fill="black" opacity="0" />
+                <g id="metal-mask-three-stone" opacity="0">
+                  <circle id="metal-mask-3s-center" cx="250" cy="182" r="28" fill="black" />
+                  <circle id="metal-mask-3s-left" cx="196" cy="204" r="18" fill="black" />
+                  <circle id="metal-mask-3s-right" cx="304" cy="204" r="18" fill="black" />
+                </g>
+                <path id="metal-mask-band" d="M 140,310 A 125,125 0 0,1 360,310" fill="none" stroke="black" stroke-width="38" stroke-linecap="round" opacity="0" />
+              </mask>
+            </defs>
+
+            <!-- Main ring render base (filtered metal) wrapped in a group for filter compatibility -->
+            <g id="ring-base-group" mask="url(#metal-mask)" style="transition: filter 0.4s ease;">
+              <image href="solitaire_ring.png" x="0" y="0" width="500" height="500" id="ring-base-image"></image>
+            </g>
+            
+            <!-- Masked ring duplicate (unfiltered gemstone reflections) wrapped in a group for filter compatibility -->
+            <g id="ring-gems-group" mask="url(#gem-mask)" style="transition: filter 0.4s ease;">
+              <image href="solitaire_ring.png" x="0" y="0" width="500" height="500" id="ring-gems-image"></image>
+            </g>
+            
+            <!-- Dynamic SVG Gemstone Color overlay for blend-mode coloring -->
+            <g id="gem-overlay-svg" style="display: none;">
+              <!-- Solitaire overlay area -->
+              <circle id="gem-solitaire" cx="250" cy="190" r="32" fill="transparent" style="mix-blend-mode: multiply; filter: blur(2px); opacity: 0.85;"></circle>
+              <!-- Halo overlay area -->
+              <circle id="gem-halo" cx="250" cy="188" r="38" fill="transparent" style="mix-blend-mode: multiply; filter: blur(3px); opacity: 0.85;"></circle>
+              <!-- Three-stone overlay areas -->
+              <g id="gem-three-stone" style="display: none;">
+                <circle cx="250" cy="182" r="28" fill="transparent" style="mix-blend-mode: multiply; filter: blur(2px); opacity: 0.85;" id="gem-3s-center"></circle>
+                <circle cx="196" cy="204" r="18" fill="transparent" style="mix-blend-mode: multiply; filter: blur(2px); opacity: 0.85;" id="gem-3s-left"></circle>
+                <circle cx="304" cy="204" r="18" fill="transparent" style="mix-blend-mode: multiply; filter: blur(2px); opacity: 0.85;" id="gem-3s-right"></circle>
+              </g>
+              <!-- Eternity Band overlay area -->
+              <path id="gem-band" d="M 140,310 A 125,125 0 0,1 360,310" fill="none" stroke="transparent" stroke-width="38" stroke-linecap="round" style="mix-blend-mode: multiply; filter: blur(2px); display: none;"></path>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Live specification tracker -->
+        <div class="live-stats">
+          <div class="live-stats-title">Current Configuration</div>
+          <div class="live-stats-value" id="live-config-summary">Platinum 950 • 1.00ct Diamond</div>
+        </div>
+      </div>
+
+      <div class="view-controls">
+        <button class="btn-view active" id="btn-view-3d">45° Perspective</button>
+        <button class="btn-view" id="btn-view-ortho">Front View</button>
+      </div>
+    </section>
+
+    <!-- Controls Panel (Right Side) -->
+    <main class="control-panel">
+      <!-- Step Navigation Tab Bar -->
+      <nav class="steps-nav" role="tablist">
+        <button class="step-tab active" data-step="1" role="tab" aria-selected="true">1. Metal</button>
+        <button class="step-tab" data-step="2" role="tab" aria-selected="false">2. Stone</button>
+        <button class="step-tab" data-step="3" role="tab" aria-selected="false">3. Dimension</button>
+        <button class="step-tab" data-step="4" role="tab" aria-selected="false">4. CAD Sheet</button>
+        <button class="step-tab" data-step="5" role="tab" aria-selected="false">5. Match</button>
+      </nav>
+
+      <!-- Step Content Area -->
+      <div class="control-content">
+        
+        <!-- Step 1: Metal Style Selection -->
+        <section class="step-section active" id="step-1" aria-label="금속 스타일 선택">
+          <h2 class="step-title">Select Metal</h2>
+          <p class="step-desc">주얼리의 베이스가 되는 귀금속 종류를 선택하세요. 합금 비율 및 함량에 따라 명세가 다르게 설계됩니다.</p>
+          
+          <span class="option-group-label">Precious Metal Options</span>
+          <div class="options-grid">
+            <div class="option-card active" data-metal="platinum" data-metal-label="Platinum 950" data-metal-code="Pt950">
+              <span class="option-icon">⚪</span>
+              <span class="option-name">Platinum 950</span>
+              <span class="option-meta">순도 95% 백금</span>
+            </div>
+            <div class="option-card" data-metal="yellowgold" data-metal-label="18K Yellow Gold" data-metal-code="18K YG">
+              <span class="option-icon">🟡</span>
+              <span class="option-name">18K Yellow Gold</span>
+              <span class="option-meta">순도 75% 황금</span>
+            </div>
+            <div class="option-card" data-metal="rosegold" data-metal-label="18K Rose Gold" data-metal-code="18K RG">
+              <span class="option-icon">🔴</span>
+              <span class="option-name">18K Rose Gold</span>
+              <span class="option-meta">순도 75% 로즈골드</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 2: Gemstone Selection & Settings -->
+        <section class="step-section" id="step-2" aria-label="보석 및 세팅 선택">
+          <h2 class="step-title">Select Stone & Setting</h2>
+          <p class="step-desc">중앙 스톤의 종류와 배열 방식(세팅)을 선택하여 유니크한 조합을 만드세요.</p>
+          
+          <span class="option-group-label">Setting Styles</span>
+          <div class="options-grid">
+            <div class="option-card active" data-style="solitaire" data-style-label="Solitaire">
+              <span class="option-icon">💍</span>
+              <span class="option-name">Solitaire</span>
+              <span class="option-meta">클래식 1구 세팅</span>
+            </div>
+            <div class="option-card" data-style="halo" data-style-label="Halo">
+              <span class="option-icon">💠</span>
+              <span class="option-name">Halo</span>
+              <span class="option-meta">헤일로 주변석 세팅</span>
+            </div>
+            <div class="option-card" data-style="three-stone" data-style-label="Three-Stone">
+              <span class="option-icon">💎</span>
+              <span class="option-name">Three-Stone</span>
+              <span class="option-meta">트리플 스톤 배치</span>
+            </div>
+            <div class="option-card" data-style="band" data-style-label="Eternity Band">
+              <span class="option-icon">⭕</span>
+              <span class="option-name">Eternity Band</span>
+              <span class="option-meta">올 다이아몬드 밴드</span>
+            </div>
+          </div>
+
+          <span class="option-group-label">Gemstones</span>
+          <div class="options-grid">
+            <div class="option-card active" data-gem="diamond" data-gem-label="Diamond" data-gem-color="#ffffff">
+              <span class="option-icon">✨</span>
+              <span class="option-name">Diamond</span>
+              <span class="option-meta">굴절률 2.42 다이아</span>
+            </div>
+            <div class="option-card" data-gem="ruby" data-gem-label="Ruby" data-gem-color="#e2264d">
+              <span class="option-icon">❤️</span>
+              <span class="option-name">Ruby</span>
+              <span class="option-meta">강렬한 적색 루비</span>
+            </div>
+            <div class="option-card" data-gem="sapphire" data-gem-label="Sapphire" data-gem-color="#1c3dc4">
+              <span class="option-icon">💙</span>
+              <span class="option-name">Sapphire</span>
+              <span class="option-meta">심해의 청색 사파이어</span>
+            </div>
+            <div class="option-card" data-gem="emerald" data-gem-label="Emerald" data-gem-color="#1ea665">
+              <span class="option-icon">💚</span>
+              <span class="option-name">Emerald</span>
+              <span class="option-meta">신비로운 녹색 에메랄드</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 3: Dimensional Settings -->
+        <section class="step-section" id="step-3" aria-label="치수 및 중량 설정">
+          <h2 class="step-title">Adjust Dimensions</h2>
+          <p class="step-desc">반지 호수와 캐럿 사이즈를 미세조정하세요. 치수에 맞게 중량과 크기가 실시간 계산됩니다.</p>
+          
+          <div class="slider-container">
+            <div class="slider-header">
+              <span class="slider-label">Gemstone Carat Weight</span>
+              <span class="slider-val" id="lbl-carat">1.00 ct</span>
+            </div>
+            <input type="range" class="slider-input" id="range-carat" min="0.3" max="2.0" step="0.05" value="1.0">
+            <div class="slider-ticks">
+              <span>0.3ct</span>
+              <span>0.7ct</span>
+              <span>1.0ct</span>
+              <span>1.5ct</span>
+              <span>2.0ct</span>
+            </div>
+          </div>
+
+          <div class="slider-container">
+            <div class="slider-header">
+              <span class="slider-label">Ring Size (호수)</span>
+              <span class="slider-val" id="lbl-ring-size">12 호</span>
+            </div>
+            <input type="range" class="slider-input" id="range-ring-size" min="1" max="30" step="1" value="12">
+            <div class="slider-ticks">
+              <span>1호 (둘레 44mm)</span>
+              <span>15호 (58mm)</span>
+              <span>30호 (73mm)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 4: CAD Spec Sheet & Export -->
+        <section class="step-section" id="step-4" aria-label="CAD 스펙 및 내보내기">
+          <h2 class="step-title">CAD Render Spec Sheet</h2>
+          <p class="step-desc">설계된 주얼리의 캐드 정보 명세서입니다. 3D 캐드 렌더링 값과 실측 오차가 최소화된 스펙 시트를 출력하거나 이미지로 저장할 수 있습니다.</p>
+          
+          <!-- Spec Sheet Card -->
+          <article class="spec-sheet-card" id="spec-sheet-print-area">
+            <div class="spec-title-block">
+              <div class="spec-brand">AURA JEWELRY</div>
+              <div class="spec-model-name" id="spec-model-title">Classic Solitaire Ring</div>
+            </div>
+            <div class="spec-grid">
+              <div class="spec-item">
+                <span class="spec-lbl">Precious Metal (금속 종류)</span>
+                <span class="spec-val" id="spec-metal-type">Platinum 950 (Pt950)</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Calculated Weight (예상 중량)</span>
+                <span class="spec-val" id="spec-calculated-weight">6.85 g</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Center Gemstone (중앙 보석)</span>
+                <span class="spec-val" id="spec-gem-type">1.00 ct Diamond (Round Cut)</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Gemstone Dimensions (보석 지름)</span>
+                <span class="spec-val" id="spec-gem-diameter">6.50 mm</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Ring Inner Diameter (반지 안지름)</span>
+                <span class="spec-val" id="spec-ring-inner">16.7 mm</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Ring Inner Circumference (반지 둘레)</span>
+                <span class="spec-val" id="spec-ring-circum">55.0 mm</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Setting Style (세팅 방식)</span>
+                <span class="spec-val" id="spec-setting-style">Prong Solitaire Setting</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-lbl">Render View Angle (조감 앵글)</span>
+                <span class="spec-val" id="spec-render-angle">Perspective 45° / Orthographic 90°</span>
+              </div>
+            </div>
+            <div class="spec-footer">
+              <span class="spec-timestamp" id="spec-date">Date: 2026. 06. 06</span>
+              <span class="spec-serial" id="spec-serial-id">AU-950-8472-X</span>
+            </div>
+          </article>
+
+          <div class="actions-container">
+            <button class="btn-primary" id="btn-save-image">Save Render Image</button>
+            <button class="btn-secondary" id="btn-print-spec">Print Spec Sheet</button>
+          </div>
+        </section>
+
+        <!-- Step 5: Partner Matching -->
+        <section class="step-section" id="step-5" aria-label="출력소 및 세공사 매칭">
+          <h2 class="step-title">Prototype & Craftsmanship</h2>
+          <p class="step-desc">디자인이 만족스러운가요? 실물 주얼리 주조용 왁스/수지 프로토타입 출력소와 종로 최고의 세공 장인을 바로 연결해 드립니다.</p>
+          
+          <!-- Prototype Printing Services -->
+          <div class="partner-section-title">
+            3D Printing Casting Labs <span>프로토타입 출력소</span>
+          </div>
+          <div class="partner-list" id="printing-labs-list">
+            <!-- Printing lab cards generated dynamically -->
+          </div>
+
+          <!-- Master Craftsmen Services -->
+          <div class="partner-section-title">
+            Master Jewelers <span>세공 장인 매칭</span>
+          </div>
+          <div class="partner-list" id="craftsmen-list">
+            <!-- Craftsman cards generated dynamically -->
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Navigation buttons at bottom -->
+      <footer class="nav-buttons">
+        <button class="btn-nav" id="btn-nav-prev" disabled>
+          <span>←</span> Prev Step
+        </button>
+        <button class="btn-nav btn-nav-next" id="btn-nav-next">
+          Next Step <span>→</span>
+        </button>
+      </footer>
+    </main>
+
+  </div>
+
+  <!-- Booking Modal -->
+  <div class="modal-overlay" id="booking-modal">
+    <div class="modal-content">
+      <button class="modal-close" id="btn-close-modal">&times;</button>
+      <h3 class="modal-title" id="modal-heading">Lab Booking</h3>
+      <p class="modal-desc" id="modal-subheading">정교한 주얼리 3D 주조 수지(Resin) 프로토타입 출력을 신청합니다.</p>
+      
+      <form id="booking-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label class="form-label">Selected Design Serial</label>
+          <input type="text" class="form-input" id="form-serial" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="form-name">Name (신청자명)</label>
+          <input type="text" class="form-input" id="form-name" placeholder="예: 김아우라" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="form-phone">Contact Number (연락처)</label>
+          <input type="tel" class="form-input" id="form-phone" placeholder="010-0000-0000" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="form-date">Preferred Date (희망 예약일)</label>
+          <input type="date" class="form-input" id="form-date" required>
+        </div>
+        <div class="form-group" id="form-specialty-container" style="display: none;">
+          <label class="form-label" for="form-specialty">Special Request (세공 요청사항)</label>
+          <select class="form-select" id="form-specialty">
+            <option value="setting">스톤 정밀 물림 (Prong Setting)</option>
+            <option value="polishing">거울광 택마무리 (Mirror Polishing)</option>
+            <option value="engraving">레이저 각인 (Laser Engraving)</option>
+            <option value="sizing">정밀 호수 피팅 (Size Adjustment)</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;" id="btn-submit-booking">Submit Request</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
